@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// Importing the required OpenZeppelin contracts
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -10,8 +9,8 @@ contract StakingContract is Ownable {
     // The ERC20 token used for staking
     IERC20 public stakingToken;
 
-    // The hard cap on the staking duration
-    uint256 public constant DURATION_HARD_CAP = 30 days;
+    // The minimum duration for staking
+    uint256 public constant MIN_DURATION = 1 weeks;
 
     // Struct to store user staking information
     struct StakeInfo {
@@ -37,9 +36,9 @@ contract StakingContract is Ownable {
 
     // Function for users to stake their tokens
     function stakeTokens(uint256 _amount, uint256 _lockDuration) external {
-        // Ensure staking amount is greater than 0 and lock duration is within the hard cap
+        // Ensure staking amount is greater than 0 and lock duration is at least the minimum duration
         require(_amount > 0, "Staking amount must be greater than 0");
-        require(_lockDuration <= DURATION_HARD_CAP, "Lock duration exceeds hard cap");
+        require(_lockDuration >= MIN_DURATION, "Lock duration is less than the minimum duration");
 
         // Retrieve user's current stake information
         StakeInfo storage userStake = stakes[msg.sender];
@@ -64,7 +63,7 @@ contract StakingContract is Ownable {
         StakeInfo storage userStake = stakes[msg.sender];
 
         // Check if the lock-up period has passed
-        require(block.timestamp >= userStake.stakeTimestamp + 4 weeks, "Staking period has not passed");
+        require(block.timestamp >= userStake.stakeTimestamp + 1 weeks, "Staking period has not passed");
 
         // Transfer the staked tokens back to the user
         stakingToken.transfer(msg.sender, userStake.amount);
@@ -82,7 +81,7 @@ contract StakingContract is Ownable {
     function claimRewards() external {
         // Check if the lock-up period has passed
         StakeInfo storage userStake = stakes[msg.sender];
-        require(block.timestamp >= userStake.stakeTimestamp + 4 weeks, "Staking period has not passed");
+        require(block.timestamp >= userStake.stakeTimestamp + 1 weeks, "Staking period has not passed");
 
         // Calculate user's rewards based on their staking information
         uint256 rewardAmount = calculateRewards(msg.sender);
@@ -107,6 +106,6 @@ contract StakingContract is Ownable {
     // Function to check if a user is eligible to claim rewards
     function canClaimRewards(address _user) public view returns (bool) {
         StakeInfo storage userStake = stakes[_user];
-        return block.timestamp >= userStake.stakeTimestamp + 4 weeks;
+        return block.timestamp >= userStake.stakeTimestamp + 1 weeks;
     }
 }

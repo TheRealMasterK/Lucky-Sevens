@@ -14,8 +14,9 @@ describe("Lock", function () {
     const ONE_GWEI = 1_000_000_000;
 
     const lockedAmount = ONE_GWEI;
-    const unlockTime = (await time.latest()) + ONE_YEAR_IN_SECS;
-
+    await network.provider.send("evm_increaseTime", [duration.years(1).toSeconds()]);
+    await network.provider.send("evm_mine");
+    const unlockTime = (await ethers.provider.getBlock("latest")).timestamp;
     // Contracts are deployed using the first signer/account by default
     const [owner, otherAccount] = await ethers.getSigners();
 
