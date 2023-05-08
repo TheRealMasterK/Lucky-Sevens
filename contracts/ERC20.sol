@@ -3,7 +3,7 @@ pragma solidity ^0.8.10;
 
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
 import "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
-import "@openzeppelin/contracts//utils/Context.sol";
+import "@openzeppelin/contracts/utils/Context.sol";
 
 contract ERC20 is Context, IERC20, IERC20Metadata {
     mapping(address => uint256) private _balances;
