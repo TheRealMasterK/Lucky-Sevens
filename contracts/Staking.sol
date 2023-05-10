@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract StakingContract is Ownable {
+    using SafeMath for uint256;
+
     // The ERC20 token used for staking
     IERC20 public stakingToken;
 
@@ -22,11 +24,14 @@ contract StakingContract is Ownable {
     // Mapping to store each user's staking information
     mapping(address => StakeInfo) public stakes;
 
+    // List of stakers
+    address[] public stakers;
+
     // Keep track of the total amount staked in the contract
     uint256 public totalStaked;
 
     // Events to log staking, withdrawal, and reward claiming actions
-    event Staked(address indexed user, uint256 amount, uint256 lockDuration);
+    event Staked(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event RewardClaimed(address indexed user, uint256 rewardAmount);
 
@@ -36,26 +41,30 @@ contract StakingContract is Ownable {
     }
 
     // Function for users to stake their tokens
-    function stakeTokens(uint256 _amount, uint256 _lockDuration) external {
-        // Ensure staking amount is greater than 0 and lock duration is at least the minimum duration
+    function stakeTokens(uint256 _amount) external {
+        // Ensure staking amount is greater than 0
         require(_amount > 0, "Staking amount must be greater than 0");
-        require(_lockDuration >= MIN_DURATION, "Lock duration is less than the minimum duration");
 
         // Retrieve user's current stake information
         StakeInfo storage userStake = stakes[msg.sender];
 
+        // Add user to the stakers list if they are not already in it
+        if (userStake.amount == 0) {
+            stakers.push(msg.sender);
+        }
+
         // Update the user's stake information
-        userStake.amount += _amount;
+        userStake.amount = userStake.amount.add(_amount);
         userStake.stakeTimestamp = block.timestamp;
 
         // Increase the total amount staked in the contract
-        totalStaked += _amount;
+        totalStaked = totalStaked.add(_amount);
 
         // Transfer tokens from the user to the contract
         stakingToken.transferFrom(msg.sender, address(this), _amount);
 
         // Emit the Staked event
-        emit Staked(msg.sender, _amount, _lockDuration);
+        emit Staked(msg.sender, _amount);
     }
 
     // Function to allow users to withdraw their staked tokens
@@ -64,7 +73,7 @@ contract StakingContract is Ownable {
         StakeInfo storage userStake = stakes[msg.sender];
 
         // Check if the lock-up period has passed
-        require(block.timestamp >= userStake.stakeTimestamp + 1 weeks, "Staking period has not passed");
+        require(block.timestamp >= userStake.stakeTimestamp + MIN_DURATION, "Staking period has not passed");
 
         // Transfer the staked tokens back to the user
         stakingToken.transfer(msg.sender, userStake.amount);
@@ -73,7 +82,7 @@ contract StakingContract is Ownable {
         emit Withdrawn(msg.sender, userStake.amount);
 
         // Reset the user's stake information and reduce the total staked amount
-        totalStaked -= userStake.amount;
+        totalStaked = totalStaked.sub(userStake.amount);
         userStake.amount = 0;
         userStake.stakeTimestamp = 0;
     }
@@ -82,7 +91,7 @@ contract StakingContract is Ownable {
     function claimRewards() external {
         // Check if the lock-up period has passed
         StakeInfo storage userStake = stakes[msg.sender];
-        require(block.timestamp >= userStake.stakeTimestamp + 1 weeks, "Staking period has not passed");
+        require(block.timestamp >= userStake.stakeTimestamp + MIN_DURATION, "Staking period has not passed");
 
         // Calculate user's rewards based on their staking information
         uint256 rewardAmount = calculateRewards(msg.sender);
@@ -107,6 +116,13 @@ contract StakingContract is Ownable {
     // Function to check if a user is eligible to claim rewards
     function canClaimRewards(address _user) public view returns (bool) {
         StakeInfo storage userStake = stakes[_user];
-        return block.timestamp >= userStake.stakeTimestamp + 1 weeks;
+        return block.timestamp >= userStake.stakeTimestamp + MIN_DURATION;
+    }
+
+    // Function to choose a random winner from the stakers list
+    function pickRandomWinner() external view returns (address) {
+        require(stakers.length > 0, "No stakers available");
+        uint256 randomIndex = uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty))) % stakers.length;
+        return stakers[randomIndex];
     }
 }
